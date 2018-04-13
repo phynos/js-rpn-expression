@@ -17,6 +17,7 @@ var TOKEN_OBJECT = "object";
 function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
 function isWhiteSpace(c) { return /\s/.test(c); };
+function isVarName(c) {return /[0-9a-zA-Z_]/.test(c);};
 function isLeftBrackets(c) { return c == "(";};
 function isRightBrackets(c) { return c == ")";};
 
@@ -102,6 +103,20 @@ CalContext.prototype.parse = function(expression){
 		} else if(isRightBrackets(c)){
 			addToken(TOKEN_OPERATOR,c);
 			i++;
+		} else if(c == "$"){//变量
+			var varName = "$";//最终变量名称
+			i++;
+			while(i < expression.length){
+				c = expression[i];
+				if(isVarName(c)){
+					i++;
+					varName = varName + c;
+				} else {
+					break;
+				}
+			}			
+			var num = this.dataMap[varName];
+			addToken(TOKEN_NUMBER,num);			
 		} else {
 			throw "非法字符" + c;
 		}
@@ -273,4 +288,19 @@ CalContext.prototype.putData = function(name,data){
 //清楚值栈中所有的自定义数据
 CalContext.prototype.clearAll = function(){
 	this.dataMap = {};
+};
+CalContext.prototype.test = function(expr,result){   
+	context = this;  
+     console.group("测试样例：" + expr);
+     console.time("编译和执行");
+     var _result = context.calc(expr);     
+     console.timeEnd("编译和执行");
+     if(result == _result)
+        console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:green;","成功",expr,_result);
+     else
+        console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:red;","失败",expr,_result);
+     console.log("语法栈：");
+     console.log(context.getFinalTokens());     
+     console.assert(result == _result,"测试失败");     
+     console.groupEnd();
 };

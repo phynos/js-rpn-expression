@@ -12,14 +12,27 @@
 ## 使用举例
   <pre>
      var context = new CalContext();
-     context.putData("$a",5);//增加值栈——变量
-     context.putData("tan",function(a){return Math.tan(a);});//增加值栈——函数
+     //增加值栈——变量
+     context.putData("$a",5);
+     //增加值栈——无参数函数
+     context.putData("fun0",function(){return 1000;});
+     //增加值栈——单参数函数
+     context.putData("fun1",function(a){return Math.tan(a);});
+     //增加值栈——多参数函数
+     context.putData("fun2",function(a,b){return Math.tan(a) + Math.tan(b);});
+     //增加值栈——对象
      context.putData("people",{
         year: 28,
-        getRealYear: function(){
+        fun1: function(){
           return this.year + 2;
+        },
+        fun2: function(a){
+          return this.year + Math.tan(a);
+        },
+        fun3: function(a,b){
+          return this.year + Math.tan(a) + Math.tan(b);
         }
-     });//增加值栈——对象
+     });
 
      //获取值
      //var result = context.calc(expr);

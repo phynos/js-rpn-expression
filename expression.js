@@ -16,6 +16,8 @@ var TOKEN_OBJECT = "object";
 
 function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
+function isAlphaOrLine() { return /[a-zA-Z_]/.test(c); };
+function isAlphaOrLineOrNumber() { return /[0-9a-zA-Z_]/.test(c); };
 function isWhiteSpace(c) { return /\s/.test(c); };
 function isVarName(c) {return /[0-9a-zA-Z_]/.test(c);};
 function isLeftBrackets(c) { return c == "(";};
@@ -139,6 +141,8 @@ CalContext.prototype.parse = function(expression){
 			}			
 			var num = this.dataMap[varName];
 			addToken(TOKEN_NUMBER,num);			
+		} else if(isAlphaOrLine(c)){//函数或对象
+			throw "暂不支持函数和对象";			
 		} else {
 			throw "非法字符" + c;
 		}

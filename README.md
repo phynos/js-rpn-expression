@@ -32,6 +32,12 @@
 
      context.test("40*(8-2)",240);
 
-     context.test("$a + 5",10);  
+     context.test("0.1 + 1 + 0.3",1.4);
+
+     context.test("0.1 *10 + 6.3",7.3);
+
+     context.test("$a + 5",10);
+
+     context.test("($a + 1)/2 + 1",4);  
   </pre>
 

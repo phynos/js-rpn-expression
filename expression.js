@@ -81,15 +81,37 @@ CalContext.prototype.parse = function(expression){
 		c = expression[i];
 		if(isDigit(c)){
 			var num = parseInt(c);
+			var num2 = 0;//如果是浮点数，先用此数记录小数后的部分
+			var isFloat = false;
 			i++;		
 			while(i < expression.length){				
 				c = expression[i];
-				if(isDigit(expression[i])){
-					i++;
-					num = num * 10 + parseInt(c);				
+				if(isFloat) {
+					if(isDigit(expression[i])){
+						i++;
+						if(num2 == 0){
+							num2 = parseInt(c);
+						} else {
+							num2 = num2*10 + parseInt(c);
+						}
+						if(i == expression.length){
+							num = parseFloat(num + "." + num2);	
+						}
+					} else {
+						num = parseFloat(num + "." + num2);
+						break;
+					}
 				} else {
-					break;
-				}				
+					if(isDigit(expression[i])){
+						i++;
+						num = num * 10 + parseInt(c);				
+					} else if(c == "."){
+						i++;
+						isFloat = true;
+					} else {
+						break;
+					}
+				}			
 			}
 			addToken(TOKEN_NUMBER,num);
 		} else if(isOperator(c)){

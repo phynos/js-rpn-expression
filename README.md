@@ -21,6 +21,11 @@
         }
      });//增加值栈——对象
 
+     //获取值
+     //var result = context.calc(expr);
+
+     //下面是测试用例
+
      context.test("40+8*2",56);
 
      context.test("40*8+2",322);

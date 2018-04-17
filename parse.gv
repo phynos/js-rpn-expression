@@ -1,0 +1,22 @@
+digraph finite_state_machine {
+
+    rankdir=LR;
+    size="8,5"
+    node [shape = doublecircle]; LR_0 LR_4 LR_5 LR_8;
+    node [shape = circle];
+
+
+
+    LR_0 -> LR_1 [ lable = "a-zA-Z_" ];
+    LR_1 -> LR_1 [ lable = "0-9a-zA-Z_" ];
+
+    LR_0 -> LR_2 [ label = "0-9" ];
+    LR_2 -> LR_2 [ label = "0-9" ];
+
+    LR_0 -> LR_3 [ label = "space" ];
+    LR_3 -> LR_3 [ lable = "space" ];
+
+    LR_0 -> LR_6 [ label = "=" ];
+    LR_6 -> LR_7 [ label = "=" ];
+    LR_6 -> LR_8 [ label = "other" ];
+}

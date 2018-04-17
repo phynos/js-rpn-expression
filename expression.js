@@ -325,7 +325,7 @@ CalContext.prototype.excecute = function(){
 				if(p == "PARA_FLAG" ){
 					break;
 				}
-				paras.push(p);//注意入栈顺序
+				paras.unshift(p);//注意入栈顺序
 			}
 			var result = f.apply(window,paras);
 			opds.push(result);			

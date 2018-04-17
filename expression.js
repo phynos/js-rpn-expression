@@ -13,13 +13,13 @@ var TOKEN_NUMBER = "number";
 var TOKEN_OPERATOR = "operator";
 var TOKEN_FUNCTION = "function";
 var TOKEN_OBJECT = "object";
+var TOKEN_FUNCTION_PARA_FLAG = "function_para_flag";
 
 function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
-function isAlphaOrLine() { return /[a-zA-Z_]/.test(c); };
-function isAlphaOrLineOrNumber() { return /[0-9a-zA-Z_]/.test(c); };
+function isAlphaOrLine(c) { return /[a-zA-Z_]/.test(c); };
+function isAlphaOrLineOrNumber(c) { return /[0-9a-zA-Z_]/.test(c); };
 function isWhiteSpace(c) { return /\s/.test(c); };
-function isVarName(c) {return /[0-9a-zA-Z_]/.test(c);};
 function isLeftBrackets(c) { return c == "(";};
 function isRightBrackets(c) { return c == ")";};
 
@@ -27,19 +27,23 @@ function isRightBrackets(c) { return c == ")";};
 //获取运算符优先级，数值越大，优先级越低
 function getPriority(op){
 	var _op = op.value;
-	if(_op == "(")
+	if(op.type == TOKEN_OPERATOR){
+		if(_op == "(")
+			return 0;
+		else if(_op == ")")
+			return 10;
+		else if(_op == "*")
+			return 30;
+		else if(_op == "/")
+			return 31;
+		else if(_op == "+")
+			return 40;
+		else if(_op == "-")
+			return 41;	
 		return 0;
-	else if(_op == ")")
-		return 10;
-	else if(_op == "*")
-		return 30;
-	else if(_op == "/")
-		return 31;
-	else if(_op == "+")
-		return 40;
-	else if(_op == "-")
-		return 41;	
-	return 0;
+	} else {
+		return 20;//函数是单目运算符，优先级=20
+	}	
 };
 
 //比较运算符优先级
@@ -70,7 +74,7 @@ CalContext.prototype.calc = function(expression){
 	var result = this.excecute();
 	return result;
 };
-//词法分析--目前只支持=-*/和数字
+//词法分析
 CalContext.prototype.parse = function(expression){
 	var tokens = [],i = 0,c;
 	var addToken = function (type, value) {
@@ -121,28 +125,36 @@ CalContext.prototype.parse = function(expression){
 			i++;
 		} else if(isWhiteSpace(c)){
 			i++;
-		} else if(isLeftBrackets(c)){
-			addToken(TOKEN_OPERATOR,c);
-			i++;
-		} else if(isRightBrackets(c)){
-			addToken(TOKEN_OPERATOR,c);
-			i++;
 		} else if(c == "$"){//变量
 			var varName = "$";//最终变量名称
 			i++;
 			while(i < expression.length){
 				c = expression[i];
-				if(isVarName(c)){
+				if(isAlphaOrLineOrNumber(c)){
 					i++;
 					varName = varName + c;
 				} else {
 					break;
 				}
-			}			
+			}
 			var num = this.dataMap[varName];
 			addToken(TOKEN_NUMBER,num);			
-		} else if(isAlphaOrLine(c)){//函数或对象
-			throw "暂不支持函数和对象";			
+		} else if(isAlphaOrLine(c)){//函数或对象（暂时只支持函数）
+			var funName = c;
+			i++;
+			while(i < expression.length){
+				c = expression[i];
+				if(isAlphaOrLineOrNumber(c)){
+					i++;
+					funName = funName + c;
+				} else if(c == "("){//函数的每个参数相当于一个表达式
+					addToken(TOKEN_FUNCTION,funName);	
+					addToken(TOKEN_FUNCTION_PARA_FLAG,"PARA_FLAG");
+					addToken(TOKEN_OPERATOR,c);
+					i++;
+					break;
+				}
+			}						
 		} else {
 			throw "非法字符" + c;
 		}
@@ -183,6 +195,10 @@ CalContext.prototype.expr = function(){
 	for (var i = 0; i < this.tokens.length; i++) {
 		curToken = this.tokens[i];
 		if(curToken.type == TOKEN_NUMBER){
+			curOperand = curToken;
+			addOperand(curOperand);
+			continue;
+		} else if(curToken.type == TOKEN_FUNCTION_PARA_FLAG) {//标志位放在操作数里面
 			curOperand = curToken;
 			addOperand(curOperand);
 			continue;
@@ -270,7 +286,10 @@ CalContext.prototype.excecute = function(){
 		if(token.type == TOKEN_NUMBER){
 			//如果为操作数则压入操作数堆栈
 			opds.push(token.value);
-		} else {
+		} else if(token.type == TOKEN_FUNCTION_PARA_FLAG){
+			//如果为操作数则压入操作数堆栈
+			opds.push(token.value);
+		} else if(token.type == TOKEN_OPERATOR){//二目操作符
 			switch (token.value) {
 				case "+":
 					opa = opds.pop();
@@ -292,7 +311,24 @@ CalContext.prototype.excecute = function(){
 					opb = opds.pop();
 					opds.push(opb / opa);
 				break;
+				default:
+					console.warn("不支持的操作符：" + token.value);
+				break;
 			}
+		} else if(token.type == TOKEN_FUNCTION){//函数可看作是单目操作符
+			var funName = token.value;
+			var f = this.dataMap[funName];
+			var paras = [];
+			//弹出参数
+			while(true){
+				var p  = opds.pop();
+				if(p == "PARA_FLAG" ){
+					break;
+				}
+				paras.push(p);//注意入栈顺序
+			}
+			var result = f.apply(window,paras);
+			opds.push(result);			
 		}
 	}
 	if(opds.length == 1){
@@ -317,16 +353,18 @@ CalContext.prototype.clearAll = function(){
 };
 CalContext.prototype.test = function(expr,result){   
 	context = this;  
-     console.group("测试样例：" + expr);
-     console.time("编译和执行");
-     var _result = context.calc(expr);     
-     console.timeEnd("编译和执行");
-     if(result == _result)
-        console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:green;","成功",expr,_result);
-     else
-        console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:red;","失败",expr,_result);
-     console.log("语法栈：");
-     console.log(context.getFinalTokens());     
-     console.assert(result == _result,"测试失败");     
-     console.groupEnd();
+    console.group("测试样例：" + expr);
+    console.time("编译和执行");
+    var _result = context.calc(expr);     
+    console.timeEnd("编译和执行");
+    if(result == _result)
+       console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:green;","成功",expr,_result);
+    else
+       console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:red;","失败",expr,_result);
+    console.log("单词流：");
+    console.log(context.tokens);
+    console.log("语法栈：");
+    console.log(context.getFinalTokens());     
+    console.assert(result == _result,"测试失败");     
+    console.groupEnd();
 };

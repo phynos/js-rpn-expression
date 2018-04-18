@@ -78,6 +78,6 @@
 
     context.test("$a + fun2(3+7,3)",108);
 
-    context.test("$a + fun2(fun1(2),3)",208);  
+    context.test("$a + fun2(fun1(2),3) + 20",228);
   </pre>
 

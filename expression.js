@@ -186,9 +186,9 @@ CalContext.prototype._expr = function(tokens,offset,count){
 		});
 	};
 	//
-	var i = 0,curToken,curOperand,curOperator;
-	for (var i = 0; i < count; i++) {
-		curToken = tokens[i + offset];
+	var curToken,curOperand,curOperator;
+	for (var i = offset; i < (offset + count); i++) {
+		curToken = tokens[i];
 		if(curToken.type == TOKEN_NUMBER){
 			curOperand = curToken;
 			addOperand(curOperand);
@@ -211,20 +211,21 @@ CalContext.prototype._expr = function(tokens,offset,count){
 			continue;
 		} else if(curToken.type == TOKEN_FUNCTION){
 			//如果是函数，则将函数的每个参数单独作为一个表达式处理
-			//如果参数有有嵌套，则嵌套处理
+			//如果参数有有嵌套，则递归处理
 			curOperand = curToken;
-			//
 			curOperand.paraTokenList = [];
-			//
+			// 参数信息：参数在单词流的位置信息
 			var paraInfo = [];
 			//将函数2个括号之间的内容作为几个独立表达式
-			var _start = i + 2 + offset,_paraCount=0;
-			//扫描函数参数，计算出函数参数个数，每个参数的起始位置，token个数
-			var j = i + 1 + offset,_lb = 1;
+			var _start = i + 2,	     //函数所有参数单词流的起始位置（不包含括号）
+				_paraCount=0,		 //函数参数个数
+				j = i + 1,			 //开始扫描的位置
+				_lb = 1;             //左括号的个数（1表示参数的开始括号）
+			//扫描函数参数，计算出函数参数个数，每个参数的起始位置，token个数				
 			while(true){
 				j++;
 				var _t = tokens[j].value;
-				if(_t == ")" && _lb == 1){
+				if(_t == ")" && _lb == 1){//当参数括号刚好匹配，表示2个括号之间的 内容为参数内容
 					//最后一个参数或第一个参数（只有一个参数的时候）
 					if(_paraCount > 0){
 						paraInfo.push({
@@ -238,13 +239,13 @@ CalContext.prototype._expr = function(tokens,offset,count){
 				} else if(_t == ")"){
 					_lb--;
 				} else if(_t == "," && _lb == 1){//参数分割
-					_paraCount++;
+					_paraCount++;//参数个数+1
 					paraInfo.push({
 						offset: _start,
 						count: j - _start
-					});	
-					_start = j + 1;
-				} else if(j == i + 2 + offset){//从函数
+					});	//记录参数信息位置信息
+					_start = j + 1;//下个参数的起始位置
+				} else if(j == i + 2){//如果参数的第一个字符不是以上字符，则表示函数起码有一个参数
 					_paraCount = 1;
 				}
 			}
@@ -257,7 +258,7 @@ CalContext.prototype._expr = function(tokens,offset,count){
 			addOperand(curOperand);//函数是一个特殊的操作数
 			i = j;//i移位到函数的反括号			
 			continue;
-		} else {
+		} else { //处理操作符（包含括号）
 			curOperator = curToken;
 			if(operatorStack.length == 0){
 				addOperator(curOperator);

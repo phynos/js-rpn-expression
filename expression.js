@@ -174,8 +174,8 @@ CalContext.prototype._expr = function(tokens,offset,count){
 		operandStack.push({
 		    type: operand.type,
 		    value: operand.value,
-		    paraCount: operand.paraCount,
-			paraTokenList: operand.paraTokenList
+		    paraCount: operand.paraCount,//函数参数个数
+			paraTokenList: operand.paraTokenList  //函数参数列表
 		});
 	};
 	var operatorStack = [];//操作符堆栈

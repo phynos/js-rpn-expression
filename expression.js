@@ -54,6 +54,7 @@ function comparePriority(opa,opb){
 function CalContext(){
 	if(this instanceof CalContext){
 		this.dataMap = {};
+		this.functionMap = {};
 	} else {
 		throw new "你必须用new关键字调用构造函数";
 	}
@@ -368,14 +369,14 @@ CalContext.prototype._getExprTokenValue = function(exprToken){
 	}
 	//如果操作数是函数，则需要遍历其参数，如果有嵌套还需要迭代处理
 	var funName = exprToken.value;
-	var f = this.dataMap[funName];
+	var fObj = this.functionMap[funName];
 	var paras = [];
 	//弹出参数
 	for (var i = 0; i < exprToken.paraCount; i++) {
 		var para = this._execute(exprToken.paraTokenList[i]);
 		paras.push(this._getExprTokenValue(para));
 	}
-	var result = f.apply(window,paras);
+	var result = fObj.fun.apply(fObj.obj == undefined? window:fObj.obj,paras);
 	return result;
 }
 //打印tokens
@@ -388,6 +389,12 @@ CalContext.prototype.getFinalTokens = function(){
 //在值栈中添加数据，支持变量、函数、对象（支持对象方法）
 CalContext.prototype.putData = function(name,data){
 	this.dataMap[name] = data;
+};
+CalContext.prototype.putFunction = function(name,f,obj){
+	this.functionMap[name] = {
+		fun:f,
+		obj:obj
+	};
 };
 //清楚值栈中所有的自定义数据
 CalContext.prototype.clearAll = function(){

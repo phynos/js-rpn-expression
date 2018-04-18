@@ -26,11 +26,19 @@
     //增加值栈——变量
     context.putData("$a",5);
     //增加值栈——无参数函数
-    context.putData("fun0",function(){ return 1000;});
+    context.putFunction("fun0",function(){ return 1000;});
     //增加值栈——单参数函数
-    context.putData("fun1",function(a){ return 10 * a;});
+    context.putFunction("fun1",function(a){ return 10 * a;});
     //增加值栈——多参数函数
-    context.putData("fun2",function(a,b){ return 10 * a + b;});
+    context.putFunction("fun2",function(a,b){ return 10 * a + b;});
+    //增加值栈——对象参数函数
+    var t = {
+      year: 28,
+      fun: function(a) {
+        return a + this.year;
+      }
+    };
+    context.putFunction("fun3",t.fun,t);
     //增加值栈——对象
     context.putData("people",{
        year: 28,

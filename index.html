@@ -58,11 +58,18 @@
 
     context.test("$a + fun0()",1005);
 
+    context.test("$a + fun0() + 100",1105);
+
     context.test("$a + fun1(1)",15);
 
-    context.test("$a + fun2(1,1)",16);
+    context.test("$a + fun2(2,1)",26);
+
+    context.test("$a + fun2(3+7,3)",108);
+
+    context.test("$a + fun2(fun1(2),3)",208);
+
   </pre>
-<script type="text/javascript" src="expression.js"></script>
+<script type="text/javascript" src="expression_all.js"></script>
 <script>
     var context = new CalContext();
     //增加值栈——变量
@@ -108,6 +115,8 @@
     context.test("($a + 1)/2 + 1",4);
 
     context.test("$a + fun0()",1005);
+
+    context.test("$a + fun0() + 100",1105);
 
     context.test("$a + fun1(1)",15);
 

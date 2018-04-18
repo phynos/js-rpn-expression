@@ -7,8 +7,9 @@
 - [x] 支持浮点数
 - [x] 支持自定义变量
 - [x] 支持自定义函数
-- [ ] 支持自定义函数参数嵌套
+- [x] 支持自定义函数参数嵌套
 - [ ] 支持自定义对象以及对象变量和函数访问
+- [ ] 浮点数精度问题
 
 ## 使用举例
   <pre>
@@ -58,12 +59,16 @@
 
     context.test("$a + 5",10);
 
-    context.test("($a + 1)/2 + 1",4);
-
     context.test("$a + fun0()",1005);
+
+    context.test("$a + fun0() + 100",1105);
 
     context.test("$a + fun1(1)",15);
 
-    context.test("$a + fun2(1,1)",16);  
+    context.test("$a + fun2(2,1)",26);
+
+    context.test("$a + fun2(3+7,3)",108);
+
+    context.test("$a + fun2(fun1(2),3)",208);  
   </pre>
 

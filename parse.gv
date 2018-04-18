@@ -6,7 +6,6 @@ digraph finite_state_machine {
     node [shape = circle];
 
 
-
     LR_0 -> LR_1 [ lable = "a-zA-Z_" ];
     LR_1 -> LR_1 [ lable = "0-9a-zA-Z_" ];
 

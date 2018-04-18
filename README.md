@@ -7,6 +7,10 @@
 ## 更新说明
 [更新说明](UPDATE.md "更新说明")
 
+## 文件说明
+- expression.js,index.html是完整版本
+- expression_simple.js,index_simple.html是简易版本（只支持四则运算和变量）
+
 ## 主要功能
 - [x] 支持四则运算
 - [x] 支持浮点数

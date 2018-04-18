@@ -11,9 +11,6 @@
 
 var TOKEN_NUMBER = "number";
 var TOKEN_OPERATOR = "operator";
-var TOKEN_FUNCTION = "function";
-var TOKEN_OBJECT = "object";
-var TOKEN_FUNCTION_PARA_FLAG = "function_para_flag";
 
 function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
@@ -27,23 +24,19 @@ function isRightBrackets(c) { return c == ")";};
 //获取运算符优先级，数值越大，优先级越低
 function getPriority(op){
 	var _op = op.value;
-	if(op.type == TOKEN_OPERATOR){
-		if(_op == "(")
-			return 0;
-		else if(_op == ")")
-			return 10;
-		else if(_op == "*")
-			return 30;
-		else if(_op == "/")
-			return 31;
-		else if(_op == "+")
-			return 40;
-		else if(_op == "-")
-			return 41;	
+	if(_op == "(")
 		return 0;
-	} else {
-		return 20;//函数是单目运算符，优先级=20
-	}	
+	else if(_op == ")")
+		return 10;
+	else if(_op == "*")
+		return 30;
+	else if(_op == "/")
+		return 31;
+	else if(_op == "+")
+		return 40;
+	else if(_op == "-")
+		return 41;	
+	return 0;
 };
 
 //比较运算符优先级
@@ -139,22 +132,6 @@ CalContext.prototype.parse = function(expression){
 			}
 			var num = this.dataMap[varName];
 			addToken(TOKEN_NUMBER,num);			
-		} else if(isAlphaOrLine(c)){//函数或对象（暂时只支持函数）
-			var funName = c;
-			i++;
-			while(i < expression.length){
-				c = expression[i];
-				if(isAlphaOrLineOrNumber(c)){
-					i++;
-					funName = funName + c;
-				} else if(c == "("){//函数的每个参数相当于一个表达式
-					addToken(TOKEN_FUNCTION,funName);	
-					addToken(TOKEN_FUNCTION_PARA_FLAG,"PARA_FLAG");
-					addToken(TOKEN_OPERATOR,c);
-					i++;
-					break;
-				}
-			}						
 		} else {
 			throw "非法字符" + c;
 		}
@@ -195,10 +172,6 @@ CalContext.prototype.expr = function(){
 	for (var i = 0; i < this.tokens.length; i++) {
 		curToken = this.tokens[i];
 		if(curToken.type == TOKEN_NUMBER){
-			curOperand = curToken;
-			addOperand(curOperand);
-			continue;
-		} else if(curToken.type == TOKEN_FUNCTION_PARA_FLAG) {//标志位放在操作数里面
 			curOperand = curToken;
 			addOperand(curOperand);
 			continue;
@@ -286,9 +259,6 @@ CalContext.prototype.excecute = function(){
 		if(token.type == TOKEN_NUMBER){
 			//如果为操作数则压入操作数堆栈
 			opds.push(token.value);
-		} else if(token.type == TOKEN_FUNCTION_PARA_FLAG){
-			//如果为操作数则压入操作数堆栈
-			opds.push(token.value);
 		} else if(token.type == TOKEN_OPERATOR){//二目操作符
 			switch (token.value) {
 				case "+":
@@ -315,21 +285,7 @@ CalContext.prototype.excecute = function(){
 					console.warn("不支持的操作符：" + token.value);
 				break;
 			}
-		} else if(token.type == TOKEN_FUNCTION){//函数可看作是单目操作符
-			var funName = token.value;
-			var f = this.dataMap[funName];
-			var paras = [];
-			//弹出参数
-			while(true){
-				var p  = opds.pop();
-				if(p == "PARA_FLAG" ){
-					break;
-				}
-				paras.unshift(p);//注意入栈顺序
-			}
-			var result = f.apply(window,paras);
-			opds.push(result);			
-		}
+		} 
 	}
 	if(opds.length == 1){
 		value = opds.pop();
@@ -343,7 +299,7 @@ CalContext.prototype.getTokens = function(){
 CalContext.prototype.getFinalTokens = function(){
 	return this.finalTokens;
 };
-//在值栈中添加数据，支持变量、函数、对象（支持对象方法）
+//在值栈中添加数据，只支持变量
 CalContext.prototype.putData = function(name,data){
 	this.dataMap[name] = data;
 };

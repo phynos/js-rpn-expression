@@ -1,5 +1,5 @@
 /*!
- * 逆波兰表达式库--全功能版本
+ * 逆波兰表达式库--简易版本
  * RPN-expression JavaScript Library
  *
  *
@@ -13,30 +13,37 @@ var TOKEN_NUMBER = "number";
 var TOKEN_OPERATOR = "operator";
 var TOKEN_FUNCTION = "function";
 var TOKEN_OBJECT = "object";
+var TOKEN_FUNCTION_PARA_FLAG = "function_para_flag";
 
 function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
 function isAlphaOrLine(c) { return /[a-zA-Z_]/.test(c); };
 function isAlphaOrLineOrNumber(c) { return /[0-9a-zA-Z_]/.test(c); };
 function isWhiteSpace(c) { return /\s/.test(c); };
+function isLeftBrackets(c) { return c == "(";};
+function isRightBrackets(c) { return c == ")";};
 
 //按优先级排列：(,),*,/,+,-
 //获取运算符优先级，数值越大，优先级越低
 function getPriority(op){
 	var _op = op.value;
-	if(_op == "(")
+	if(op.type == TOKEN_OPERATOR){
+		if(_op == "(")
+			return 0;
+		else if(_op == ")")
+			return 10;
+		else if(_op == "*")
+			return 30;
+		else if(_op == "/")
+			return 31;
+		else if(_op == "+")
+			return 40;
+		else if(_op == "-")
+			return 41;	
 		return 0;
-	else if(_op == ")")
-		return 10;
-	else if(_op == "*")
-		return 30;
-	else if(_op == "/")
-		return 31;
-	else if(_op == "+")
-		return 40;
-	else if(_op == "-")
-		return 41;	
-	return 0;	
+	} else {
+		return 20;//函数是单目运算符，优先级=20
+	}	
 };
 
 //比较运算符优先级
@@ -62,10 +69,9 @@ CalContext.prototype.calc = function(expression){
 	//词法分析
 	this.parse(expression);
 	//表达式转换
-	var finalTokens = this._expr(this.tokens,0,this.tokens.length);
-	this.finalTokens = finalTokens;
+	this.expr();
 	//执行
-	var result = this._execute(finalTokens);
+	var result = this.excecute();
 	return result;
 };
 //词法分析
@@ -143,6 +149,7 @@ CalContext.prototype.parse = function(expression){
 					funName = funName + c;
 				} else if(c == "("){//函数的每个参数相当于一个表达式
 					addToken(TOKEN_FUNCTION,funName);	
+					addToken(TOKEN_FUNCTION_PARA_FLAG,"PARA_FLAG");
 					addToken(TOKEN_OPERATOR,c);
 					i++;
 					break;
@@ -168,14 +175,12 @@ CalContext.prototype.parse = function(expression){
 //4、当表达式读取完成后运算符堆栈中尚有运算符时，则依序取出运算符到操作数堆栈，直到运算符堆栈为空。
 
 */
-CalContext.prototype._expr = function(tokens,offset,count){
+CalContext.prototype.expr = function(){
 	var operandStack = [];//操作数堆栈
 	var addOperand = function(operand){
 		operandStack.push({
 		    type: operand.type,
-		    value: operand.value,
-		    paraCount: operand.paraCount,
-			paraTokenList: operand.paraTokenList
+		    value: operand.value
 		});
 	};
 	var operatorStack = [];//操作符堆栈
@@ -187,9 +192,13 @@ CalContext.prototype._expr = function(tokens,offset,count){
 	};
 	//
 	var i = 0,curToken,curOperand,curOperator;
-	for (var i = 0; i < count; i++) {
-		curToken = tokens[i + offset];
+	for (var i = 0; i < this.tokens.length; i++) {
+		curToken = this.tokens[i];
 		if(curToken.type == TOKEN_NUMBER){
+			curOperand = curToken;
+			addOperand(curOperand);
+			continue;
+		} else if(curToken.type == TOKEN_FUNCTION_PARA_FLAG) {//标志位放在操作数里面
 			curOperand = curToken;
 			addOperand(curOperand);
 			continue;
@@ -208,51 +217,6 @@ CalContext.prototype._expr = function(tokens,offset,count){
 					addOperand(operatorStack.pop());
 				}
 			}
-			continue;
-		} else if(curToken.type == TOKEN_FUNCTION){
-			curOperand = curToken;
-			//
-			curOperand.paraTokenList = [];
-			//
-			var paraInfo = [];
-			//将函数2个括号之间的内容作为几个独立表达式
-			var _start = i + 2 + offset,_paraCount=0;
-			//扫描函数参数，计算出函数参数个数，每个参数的起始位置，token个数
-			var j = i + 1 + offset,_lb = 1;
-			while(true){
-				j++;
-				var _t = tokens[j].value;
-				if(_t == ")" && _lb == 1){
-					if(_paraCount > 0){
-						paraInfo.push({
-							offset: _start,
-							count: j - _start
-						});	
-					}
-					break;
-				} else if(_t == "("){
-					_lb++;
-				} else if(_t == ")"){
-					_lb--;
-				} else if(_t == "," && _lb == 1){//参数分割
-					_paraCount++;
-					paraInfo.push({
-						offset: _start,
-						count: j - _start
-					});	
-					_start = j + 1;
-				} else if(j == i + 2 + offset){//从函数
-					_paraCount = 1;
-				}
-			}
-			//将每个函数参数当作一个独立表达式处理（递归处理）
-			curOperand.paraCount = _paraCount;
-			for (var k = 0; k < curOperand.paraCount; k++) {
-				var _fpTokens = this._expr(tokens,paraInfo[k].offset,paraInfo[k].count);
-				curOperand.paraTokenList.push(_fpTokens);
-			}
-			addOperand(curOperand);//函数是一个特殊的操作数
-			i = j;//i移位到函数的反括号			
 			continue;
 		} else {
 			curOperator = curToken;
@@ -300,9 +264,8 @@ CalContext.prototype._expr = function(tokens,offset,count){
     {
         finalTokens.push(operandStack.shift());
     }
-    return finalTokens;
+	this.finalTokens = finalTokens;
 };
-
 /*
   逆波兰表达式求值算法：
   1、循环扫描语法单元的项目。
@@ -312,68 +275,67 @@ CalContext.prototype._expr = function(tokens,offset,count){
   5、将运算结果重新压入堆栈。
   6、重复步骤2-5，堆栈中即为结果值。
 */
-CalContext.prototype._execute = function(exprTokens){
+CalContext.prototype.excecute = function(){
 	var value;
 	var opa,opb;
 	var opds = [], 
 		paras = [];
-	for (var i = 0; i < exprTokens.length; i++) {
-		var token = exprTokens[i];
+	for (var i = 0; i < this.finalTokens.length; i++) {
+		var token = this.finalTokens[i];
 
-		if(token.type == TOKEN_NUMBER || token.type == TOKEN_FUNCTION){
+		if(token.type == TOKEN_NUMBER){
 			//如果为操作数则压入操作数堆栈
-			opds.push(token);
+			opds.push(token.value);
+		} else if(token.type == TOKEN_FUNCTION_PARA_FLAG){
+			//如果为操作数则压入操作数堆栈
+			opds.push(token.value);
 		} else if(token.type == TOKEN_OPERATOR){//二目操作符
 			switch (token.value) {
 				case "+":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opa + opb);
 				break;
 				case "-":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opb - opa);
 				break;
 				case "*":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opa * opb);
 				break;
 				case "/":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opb / opa);
 				break;
 				default:
 					console.warn("不支持的操作符：" + token.value);
 				break;
 			}
+		} else if(token.type == TOKEN_FUNCTION){//函数可看作是单目操作符
+			var funName = token.value;
+			var f = this.dataMap[funName];
+			var paras = [];
+			//弹出参数
+			while(true){
+				var p  = opds.pop();
+				if(p == "PARA_FLAG" ){
+					break;
+				}
+				paras.unshift(p);//注意入栈顺序
+			}
+			var result = f.apply(window,paras);
+			opds.push(result);			
 		}
 	}
 	if(opds.length == 1){
-		value = this._getExprTokenValue(opds.pop());
+		value = opds.pop();
 	}
 	return value;
-}
-CalContext.prototype._getExprTokenValue = function(exprToken){
-	if(typeof(exprToken)=="number"){
-		return exprToken;
-	} else if(exprToken.type != TOKEN_FUNCTION){
-		return exprToken.value;
-	}
-	//如果操作数是函数，则需要遍历其参数，如果有嵌套还需要迭代处理
-	var funName = exprToken.value;
-	var f = this.dataMap[funName];
-	var paras = [];
-	//弹出参数
-	for (var i = 0; i < exprToken.paraCount; i++) {
-		var para = this._execute(exprToken.paraTokenList[i]);
-		paras.push(this._getExprTokenValue(para));
-	}
-	var result = f.apply(window,paras);
-	return result;
-}
+};
 //打印tokens
 CalContext.prototype.getTokens = function(){
 	return this.tokens;

@@ -10,10 +10,10 @@
  */
 
 function addMathFunction(context){
-	context.putData("tan",function(a){
+	context.putFunction("tan",function(a){
 		return Math.tan(a);
 	});
-	context.putData("sin",function(b){
+	context.putFunction("sin",function(b){
 		return Math.sin(b)
 	});
 }

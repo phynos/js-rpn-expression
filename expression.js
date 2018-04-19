@@ -11,6 +11,7 @@
 
 var TOKEN_NUMBER = "number";
 var TOKEN_OPERATOR = "operator";
+var TOKEN_VARIABLE = "variable";
 var TOKEN_FUNCTION = "function";
 var TOKEN_OBJECT = "object";
 
@@ -20,7 +21,6 @@ function isAlphaOrLine(c) { return /[a-zA-Z_]/.test(c); };
 function isAlphaOrLineOrNumber(c) { return /[0-9a-zA-Z_]/.test(c); };
 function isWhiteSpace(c) { return /\s/.test(c); };
 
-//按优先级排列：(,),*,/,+,-
 //获取运算符优先级，数值越大，优先级越低
 function getPriority(op){
 	var _op = op.value;
@@ -32,6 +32,8 @@ function getPriority(op){
 		return 30;
 	else if(_op == "/")
 		return 31;
+	else if(_op == "%")
+		return 32;
 	else if(_op == "+")
 		return 40;
 	else if(_op == "-")
@@ -61,7 +63,8 @@ function CalContext(){
 };
 CalContext.prototype.calc = function(expression){
 	//词法分析
-	this.parse(expression);
+	var tokens = this._parse(expression);
+	this.tokens = tokens;
 	//表达式转换
 	var finalTokens = this._expr(this.tokens,0,this.tokens.length);
 	this.finalTokens = finalTokens;
@@ -70,7 +73,7 @@ CalContext.prototype.calc = function(expression){
 	return result;
 };
 //词法分析
-CalContext.prototype.parse = function(expression){
+CalContext.prototype._parse = function(expression){
 	var tokens = [],i = 0,c;
 	var addToken = function (type, value) {
 	  tokens.push({
@@ -131,10 +134,9 @@ CalContext.prototype.parse = function(expression){
 				} else {
 					break;
 				}
-			}
-			var num = this.dataMap[varName];
-			addToken(TOKEN_NUMBER,num);			
-		} else if(isAlphaOrLine(c)){//函数或对象（暂时只支持函数）
+			}			
+			addToken(TOKEN_VARIABLE,varName);			
+		} else if(isAlphaOrLine(c)){//函数或对象
 			var funName = c;
 			i++;
 			while(i < expression.length){
@@ -153,7 +155,7 @@ CalContext.prototype.parse = function(expression){
 			throw "非法字符" + c;
 		}
 	}
-	this.tokens = tokens;
+	return tokens;	
 };
 /*
 中缀表达式转化为逆波兰表达式算法：
@@ -190,7 +192,8 @@ CalContext.prototype._expr = function(tokens,offset,count){
 	var curToken,curOperand,curOperator;
 	for (var i = offset; i < (offset + count); i++) {
 		curToken = tokens[i];
-		if(curToken.type == TOKEN_NUMBER){
+		if(curToken.type == TOKEN_NUMBER
+			|| curToken.type == TOKEN_VARIABLE){
 			curOperand = curToken;
 			addOperand(curOperand);
 			continue;
@@ -325,7 +328,9 @@ CalContext.prototype._execute = function(exprTokens){
 	for (var i = 0; i < exprTokens.length; i++) {
 		var token = exprTokens[i];
 
-		if(token.type == TOKEN_NUMBER || token.type == TOKEN_FUNCTION){
+		if(token.type == TOKEN_NUMBER 
+			|| token.type == TOKEN_FUNCTION
+			|| token.type == TOKEN_VARIABLE){
 			//如果为操作数则压入操作数堆栈
 			opds.push(token);
 		} else if(token.type == TOKEN_OPERATOR){//二目操作符
@@ -350,6 +355,11 @@ CalContext.prototype._execute = function(exprTokens){
 					opb = this._getExprTokenValue(opds.pop());
 					opds.push(opb / opa);
 				break;
+				case "%":
+					opa = this._getExprTokenValue(opds.pop());
+					opb = this._getExprTokenValue(opds.pop());
+					opds.push(opb % opa);
+				break;
 				default:
 					console.warn("不支持的操作符：" + token.value);
 				break;
@@ -362,43 +372,53 @@ CalContext.prototype._execute = function(exprTokens){
 	return value;
 }
 CalContext.prototype._getExprTokenValue = function(exprToken){
-	if(typeof(exprToken)=="number"){
+	if(typeof(exprToken) == "number"){
 		return exprToken;
-	} else if(exprToken.type != TOKEN_FUNCTION){
+	} else if(exprToken.type == TOKEN_NUMBER){
 		return exprToken.value;
+	} else if(exprToken.type == TOKEN_VARIABLE){
+		var varName = exprToken.value;
+		var num = this.dataMap[varName];
+		return num;
+	} else if(exprToken.type == TOKEN_FUNCTION){
+		//如果操作数是函数，则需要遍历其参数，如果有嵌套还需要迭代处理
+		var funName = exprToken.value;
+		var fObj = this.functionMap[funName];
+		var paras = [];
+		//弹出参数
+		for (var i = 0; i < exprToken.paraCount; i++) {
+			var para = this._execute(exprToken.paraTokenList[i]);
+			paras.push(this._getExprTokenValue(para));
+		}
+		var result = fObj.fun.apply(fObj.obj == undefined? window:fObj.obj,paras);
+		return result;		
+	} else {
+		throw "操作数是不支持的类型：" + exprToken;
 	}
-	//如果操作数是函数，则需要遍历其参数，如果有嵌套还需要迭代处理
-	var funName = exprToken.value;
-	var fObj = this.functionMap[funName];
-	var paras = [];
-	//弹出参数
-	for (var i = 0; i < exprToken.paraCount; i++) {
-		var para = this._execute(exprToken.paraTokenList[i]);
-		paras.push(this._getExprTokenValue(para));
-	}
-	var result = fObj.fun.apply(fObj.obj == undefined? window:fObj.obj,paras);
-	return result;
 }
-//打印tokens
+//词法分析后的单词流
 CalContext.prototype.getTokens = function(){
 	return this.tokens;
 };
+//最终的语法栈
 CalContext.prototype.getFinalTokens = function(){
 	return this.finalTokens;
 };
-//在值栈中添加数据，支持变量、函数、对象（支持对象方法）
+//在值栈中添加变量
 CalContext.prototype.putData = function(name,data){
 	this.dataMap[name] = data;
 };
+//在值栈中添加函数、对象（支持对象方法）
 CalContext.prototype.putFunction = function(name,f,obj){
 	this.functionMap[name] = {
 		fun:f,
 		obj:obj
 	};
 };
-//清楚值栈中所有的自定义数据
+//清楚值栈中所有的自定义数据——若不再使用表达式，最好调用此方法清理数据
 CalContext.prototype.clearAll = function(){
 	this.dataMap = {};
+	this.functionMap = {};
 };
 CalContext.prototype.test = function(expr,result){   
 	context = this;  

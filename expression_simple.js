@@ -30,6 +30,8 @@ function getPriority(op){
 		return 10;
 	else if(_op == "*")
 		return 30;
+	else if(_op == "%")
+		return 32;
 	else if(_op == "/")
 		return 31;
 	else if(_op == "+")
@@ -280,6 +282,11 @@ CalContext.prototype.excecute = function(){
 					opa = opds.pop();
 					opb = opds.pop();
 					opds.push(opb / opa);
+				break;
+				case "%":
+					opa = opds.pop();
+					opb = opds.pop();
+					opds.push(opb % opa);
 				break;
 				default:
 					console.warn("不支持的操作符：" + token.value);

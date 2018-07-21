@@ -253,8 +253,7 @@ CalContext.prototype.expr = function(){
 CalContext.prototype.excecute = function(){
 	var value;
 	var opa,opb;
-	var opds = [], 
-		paras = [];
+	var opds = [];
 	for (var i = 0; i < this.finalTokens.length; i++) {
 		var token = this.finalTokens[i];
 

@@ -389,7 +389,7 @@ CalContext.prototype._getExprTokenValue = function(exprToken){
 			var para = this._execute(exprToken.paraTokenList[i]);
 			paras.push(this._getExprTokenValue(para));
 		}
-		var result = fObj.fun.apply(fObj.obj == undefined? window:fObj.obj,paras);
+		var result = fObj.fun.apply(fObj.obj == undefined? {}:fObj.obj,paras);
 		return result;		
 	} else {
 		throw "操作数是不支持的类型：" + exprToken;

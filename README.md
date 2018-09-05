@@ -32,12 +32,14 @@
     var context = new CalContext();
     //增加值栈——变量
     context.putData("$a",5);
+    //增加值栈——变量
+    context.putData("PI",3);
     //增加值栈——无参数函数
-    context.putFunction("fun0",function(){ return 1000;});
+    context.putData("fun0",function(){ return 1000;});
     //增加值栈——单参数函数
-    context.putFunction("fun1",function(a){ return 10 * a;});
+    context.putData("fun1",function(a){ return 10 * a;});
     //增加值栈——多参数函数
-    context.putFunction("fun2",function(a,b){ return 10 * a + b;});
+    context.putData("fun2",function(a,b){ return 10 * a + b;});
     //增加值栈——对象参数函数（新版本中，如果函数使用了浏览器window对象全局变量，则必须传入window作为上下文）
     var t = {
       year: 28,
@@ -45,7 +47,7 @@
         return a + this.year;
       }
     };
-    context.putFunction("fun3",t.fun,t);
+    context.putData("fun3",t.fun,t);
     //增加值栈——对象
     context.putData("people",{
        age: 28,
@@ -112,5 +114,7 @@
     context.assertEqual("$a + fun3(2) + people.fun1(1)",65);
 
     context.assertEqual("$a + fun3(2) + people.skill.lang(1)",39);
+
+    context.assertEqual("PI * 2 + 3",9);
   </pre>
 

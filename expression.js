@@ -12,8 +12,7 @@
 var TOKEN_NUMBER = "number";
 var TOKEN_OPERATOR = "operator";
 var TOKEN_VARIABLE = "variable";
-var TOKEN_FUNCTION = "function";
-var TOKEN_OBJECT = "object";
+var TOKEN_IDENTIFIER = "identifier";
 
 function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
@@ -137,25 +136,25 @@ CalContext.prototype._parse = function(expression){
 			}			
 			addToken(TOKEN_VARIABLE,varName);			
 		} else if(isAlphaOrLine(c)){//函数或对象
-			var funName = c;
+			var name = c;
 			i++;
 			while(i < expression.length){
 				c = expression[i];
 				if(isAlphaOrLineOrNumber(c)){
 					i++;
-					funName = funName + c;
+					name = name + c;
 				} else if(c == "("){//函数
-					addToken(TOKEN_FUNCTION,funName);
+					addToken(TOKEN_IDENTIFIER,name);
 					addToken(TOKEN_OPERATOR,c);
 					i++;
 					break;
 				} else if(c == ".") {//对象
-					addToken(TOKEN_OBJECT,funName);
-					funName = "";
+					addToken(TOKEN_IDENTIFIER,name);
+					name = "";
 					i++;
 				} else {
-					if(funName != "") {
-						addToken(TOKEN_OBJECT,funName);
+					if(name != "") {
+						addToken(TOKEN_IDENTIFIER,name);
 					}
 					break;
 				}
@@ -222,24 +221,7 @@ CalContext.prototype._expr = function(tokens,offset,count){
 				}
 			}
 			continue;
-		} else if(curToken.type == TOKEN_FUNCTION){//孤立函数
-			//如果是函数，则将函数的每个参数单独作为一个表达式处理
-			//如果参数有有嵌套，则递归处理
-			curOperand = curToken;
-			curOperand.args = [];//参数列表
-
-			var info = this._exprFunctionArgs(tokens,i);
-			var _paraCount = info._paraCount,
-				paraInfo = info.argsLocationInfo;
-			//将每个函数参数当作一个独立表达式处理（递归处理）
-			for (var k = 0; k < _paraCount; k++) {
-				var _fpTokens = this._expr(tokens,paraInfo[k].offset,paraInfo[k].count);
-				curOperand.args.push(_fpTokens);
-			}
-			addOperand(curOperand);//函数是一个特殊的操作数
-			i = info.lastIndex;//i移位到函数的反括号
-			continue;
-		} else if(curToken.type == TOKEN_OBJECT){//对象调用
+		} else if(curToken.type == TOKEN_IDENTIFIER){//标识符
 			//如果是调用，则维护一个成员列表 + 一个函数【可选】
 			curOperand = curToken;
 			curOperand.callee = [];//调用者链
@@ -250,12 +232,11 @@ CalContext.prototype._expr = function(tokens,offset,count){
 			while(true) {
 				var nextToken = tokens[j];
 				j++;
-				if(nextToken.type == TOKEN_OBJECT) {
+				if(nextToken.type == TOKEN_IDENTIFIER) {
 					curOperand.callee.push(nextToken.value);
-				} else if(nextToken.type == TOKEN_FUNCTION) {
-					curOperand.callee.push(nextToken.value);
+				} else if(nextToken.value == "(") {
 					//处理参数列表（参数列表相当于几个新的表达式）
-					var info = this._exprFunctionArgs(tokens,j - 1);
+					var info = this._exprFunctionArgs(tokens,j - 2);
 					var _paraCount = info._paraCount,
 						paraInfo = info.argsLocationInfo;
 					//将每个函数参数当作一个独立表达式处理（递归处理）
@@ -320,13 +301,17 @@ CalContext.prototype._expr = function(tokens,offset,count){
     return finalTokens;
 };
 
+/**
+* 获取函数调用 参数信息
+* offset：函数括号之前的索引
+*/
 CalContext.prototype._exprFunctionArgs = function(tokens,offset){
 	// 参数信息：参数在单词流的位置信息
 	var paraInfo = [];
 	//将函数2个括号之间的内容作为几个独立表达式
-	var _start = offset + 2,	     //函数所有参数单词流的起始位置（不包含括号）
+	var _start = offset + 2, //函数所有参数单词流的起始位置（不包含括号）
 		_paraCount = 0,		 //函数参数个数
-		j = offset + 1,			 //开始扫描的位置
+		j = offset + 1,		 //开始扫描的位置
 		_lb = 1;             //左括号的个数（1表示参数的开始括号）
 	//扫描函数参数，计算出函数参数个数，每个参数的起始位置，token个数				
 	while(true){
@@ -359,7 +344,7 @@ CalContext.prototype._exprFunctionArgs = function(tokens,offset){
 	return {
 		_paraCount: _paraCount,
 		argsLocationInfo: paraInfo,
-		lastIndex: j 				
+		lastIndex: j // 最后一个括号后面的一个位置 的索引				
 	};
 }
 
@@ -385,11 +370,7 @@ CalContext.prototype._execute = function(exprTokens){
 		} else if(token.type == TOKEN_VARIABLE){
 			var result = this._getVarValue(token);
 			opds.push(result);
-		} else if(token.type == TOKEN_FUNCTION) {
-			//如果是函数，则计算
-			var result = this._getFunctionResult(token);
-			opds.push(result);
-		} else if(token.type == TOKEN_OBJECT){
+		} else if(token.type == TOKEN_IDENTIFIER){
 			var result = this._getCallExpressionResult(token);
 			opds.push(result);
 		} else if(token.type == TOKEN_OPERATOR){//二目操作符
@@ -431,48 +412,44 @@ CalContext.prototype._execute = function(exprTokens){
 	return value;
 }
 
-CalContext.prototype._getFunctionResult = function(funToken){
-	var funName = funToken.value;
-	var fObj = this.functionMap[funName];
-	var args = [];
-	//弹出参数
-	for (var i = 0; i < funToken.args.length; i++) {
-		var arg = this._execute(funToken.args[i]);//每个参数都是一个表达式，递归计算
-		args.push(arg);
-	}
-	var result = fObj.fun.apply(fObj.obj == undefined? {}:fObj.obj,args);
-	return result;
-}
-
 CalContext.prototype._getCallExpressionResult = function(callToken){
 	var tail = null,obj = null;
 	for (var i = 0; i < callToken.callee.length; i ++) {
 		var name = callToken.callee[i];
 		if(i == 0) {
-			tail = obj = this.dataMap[name];
+			obj = this.dataMap[name];
+			tail = obj.data;
 			continue;
 		}
 		tail = tail[name];			
 	}
-	if(callToken.args.length > 0) {//对象调用		
+	//判断tail是变量，函数，对象属性，对象方法
+	if(typeof tail == "function") {
 		var args = [];
 		//计算参数
 		for (var i = 0; i < callToken.args.length; i++) {
 			var arg = this._execute(callToken.args[i]);
 			args.push(arg);
 		}
-		//执行函数
-		var result = tail.apply(obj,args);
-		return result;
+		//执行
+		if(obj.data === tail) {//函数
+			//执行 函数
+			var result = tail.apply(obj.context || {},args);
+			return result;
+		} else {//对象方法
+			//执行 对象方法
+			var result = tail.apply(obj.data,args);
+			return result;
+		}
 	} else {
-		return tail;//属性
+		return tail;//变量 或 对象属性
 	}
 }
 
 CalContext.prototype._getVarValue = function(exprToken){
 	var varName = exprToken.value;
-	var num = this.dataMap[varName];
-	return num;
+	var val = this.dataMap[varName].data;
+	return val;
 }
 //词法分析后的单词流
 CalContext.prototype.getTokens = function(){
@@ -482,16 +459,12 @@ CalContext.prototype.getTokens = function(){
 CalContext.prototype.getFinalTokens = function(){
 	return this.finalTokens;
 };
-//在值栈中添加变量
-CalContext.prototype.putData = function(name,data){
-	this.dataMap[name] = data;
-};
-//在值栈中添加函数、对象（支持对象方法）
-CalContext.prototype.putFunction = function(name,f,obj){
-	this.functionMap[name] = {
-		fun:f,
-		obj:obj
-	};
+//在值栈中添加变量，函数，对象（支持对象方法）
+CalContext.prototype.putData = function(name,data,context){
+	this.dataMap[name] = {
+		data:data,
+		context:context
+	};	
 };
 //清除值栈中所有的自定义数据——若不再使用表达式，最好调用此方法清理数据
 CalContext.prototype.clearAll = function(){

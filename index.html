@@ -80,9 +80,11 @@
 
     context.assertEqual("$a + fun3(2)",35);
 
-    context.assertEqual("$a + fun3(2) + people.fun1(1)",65);
+    context.assertEqual("11 + people.age / 2 + 6",31);
 
-    context.assertEqual("$a + fun3(2) + people.skill.lang(1)",39);
+    context.assertEqual("11 + people.age / 2 + fun1(1)",35);
+
+    context.assertEqual("11 + fun1(people.age / 2)/2 + 1",82);
 
   </pre>
 <script type="text/javascript" src="expression.js"></script>
@@ -106,15 +108,15 @@
     context.putFunction("fun3",t.fun,t);
     //增加值栈——对象
     context.putData("people",{
-       year: 28,
+       age: 28,
        fun1: function(){
-         return this.year + 2;
+         return this.age + 2;
        },
        fun2: function(a){
-         return this.year + 10 * a;
+         return this.age + 10 * a;
        },
        fun3: function(a,b){
-         return this.year + 10 * a + b;
+         return this.age + 10 * a + b;
        },
        skill: {
           lang : function(a){
@@ -158,6 +160,12 @@
     context.assertEqual("$a + fun2(fun1(2),3) + 20",228);
 
     context.assertEqual("$a + fun3(2)",35);
+
+    context.assertEqual("11 + people.age / 2 + 6",31);
+
+    context.assertEqual("11 + people.age / 2 + fun1(1)",35);
+
+    context.assertEqual("11 + fun1(people.age / 2)/2 + 1",82);
 
     //context.assertEqual("$a + fun3(2) + people.fun1(1)",65);
 

@@ -151,7 +151,12 @@ CalContext.prototype._parse = function(expression){
 					break;
 				} else if(c == ".") {//对象
 					addToken(TOKEN_OBJECT,funName);
+					funName = "";
 					i++;
+				} else {
+					if(funName != "") {
+						addToken(TOKEN_OBJECT,funName);
+					}
 					break;
 				}
 			}						
@@ -181,6 +186,7 @@ CalContext.prototype._expr = function(tokens,offset,count){
 		operandStack.push({
 		    type: operand.type,
 		    value: operand.value,
+		    callee: operand.callee,
 			args: operand.args  //函数参数列表
 		});
 	};
@@ -362,8 +368,9 @@ CalContext.prototype._execute = function(exprTokens){
 			//如果是函数，则计算
 			var result = this._getFunctionResult(token);
 			opds.push(result);
-		} else if(token.type == TOKEN_FUNCTION){
-			opds.push(0);//暂时不支持对象计算
+		} else if(token.type == TOKEN_OBJECT){
+			var result = this._getCallExpressionResult(token);
+			opds.push(result);
 		} else if(token.type == TOKEN_OPERATOR){//二目操作符
 			switch (token.value) {
 				case "+":
@@ -417,13 +424,16 @@ CalContext.prototype._getFunctionResult = function(funToken){
 }
 
 CalContext.prototype._getCallExpressionResult = function(callToken){
-	var call = null;
+	var call = null,obj = null;
 	for (var i = 0; i < callToken.callee.length; i ++) {
-		if(call == null) {
-			call = callToken.callee[i];
+		var name = callToken.callee[i];
+		if(i == 0) {
+			obj = this.dataMap[name];
+		}
+		if(call == null) {			
+			call = obj;
 		} else {
-			var key = callToken.callee[i]
-			call = call[key];
+			call = obj[name];
 		}			
 	}
 	if(callToken.args.length > 0) {//对象调用		

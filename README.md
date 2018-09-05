@@ -22,7 +22,8 @@
 - [x] 支持自定义变量
 - [x] 支持自定义函数
 - [x] 支持自定义函数参数嵌套
-- [ ] 支持自定义对象以及对象变量和函数访问
+- [x] 支持自定义对象之对象变量访问（包括嵌套）
+- [ ] 支持自定义对象之函数调用（包括嵌套）
 - [ ] 浮点数精度问题
 - [x] 标准JS语法，新版除了测试函数，核心功能不依赖浏览器环境（比如window,dom等）
 
@@ -95,5 +96,12 @@
     context.assertEqual("$a + fun2(3+7,3)",108);
 
     context.assertEqual("$a + fun2(fun1(2),3) + 20",228);
+
+    context.assertEqual("11 + people.age / 2 + 6",31);
+
+    context.assertEqual("11 + people.age / 2 + fun1(1)",35);
+
+    context.assertEqual("11 + fun1(people.age / 2)/2 + 1",82);
+
   </pre>
 

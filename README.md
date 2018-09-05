@@ -23,7 +23,7 @@
 - [x] 支持自定义函数
 - [x] 支持自定义函数参数嵌套
 - [x] 支持自定义对象之对象变量访问（包括嵌套）
-- [ ] 支持自定义对象之函数调用（包括嵌套）
+- [x] 支持自定义对象之函数调用（包括嵌套）
 - [ ] 浮点数精度问题
 - [x] 标准JS语法，新版除了测试函数，核心功能不依赖浏览器环境（比如window,dom等）
 
@@ -48,15 +48,20 @@
     context.putFunction("fun3",t.fun,t);
     //增加值栈——对象
     context.putData("people",{
-       year: 28,
+       age: 28,
        fun1: function(){
-         return this.year + 2;
+         return this.age + 2;
        },
        fun2: function(a){
-         return this.year + 10 * a;
+         return this.age + 10 * a;
        },
        fun3: function(a,b){
-         return this.year + 10 * a + b;
+         return this.age + 10 * a + b;
+       },
+       skill: {
+          lang : function(a){
+              return a + 3;
+          }
        }
     });
 
@@ -103,5 +108,8 @@
 
     context.assertEqual("11 + fun1(people.age / 2)/2 + 1",82);
 
+    context.assertEqual("$a + fun3(2) + people.fun1(1)",65);
+
+    context.assertEqual("$a + fun3(2) + people.skill.lang(1)",39);
   </pre>
 

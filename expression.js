@@ -227,48 +227,17 @@ CalContext.prototype._expr = function(tokens,offset,count){
 			//如果参数有有嵌套，则递归处理
 			curOperand = curToken;
 			curOperand.args = [];//参数列表
-			// 参数信息：参数在单词流的位置信息
-			var paraInfo = [];
-			//将函数2个括号之间的内容作为几个独立表达式
-			var _start = i + 2,	     //函数所有参数单词流的起始位置（不包含括号）
-				_paraCount=0,		 //函数参数个数
-				j = i + 1,			 //开始扫描的位置
-				_lb = 1;             //左括号的个数（1表示参数的开始括号）
-			//扫描函数参数，计算出函数参数个数，每个参数的起始位置，token个数				
-			while(true){
-				j++;
-				var _t = tokens[j].value;
-				if(_t == ")" && _lb == 1){//当参数括号刚好匹配，表示2个括号之间的 内容为参数内容
-					//最后一个参数或第一个参数（只有一个参数的时候）
-					if(_paraCount > 0){
-						paraInfo.push({
-							offset: _start,
-							count: j - _start
-						});	
-					}
-					break;
-				} else if(_t == "("){
-					_lb++;
-				} else if(_t == ")"){
-					_lb--;
-				} else if(_t == "," && _lb == 1){//参数分割
-					_paraCount++;//参数个数+1
-					paraInfo.push({
-						offset: _start,
-						count: j - _start
-					});	//记录参数信息位置信息
-					_start = j + 1;//下个参数的起始位置
-				} else if(j == i + 2){//如果参数的第一个字符不是以上字符，则表示函数起码有一个参数
-					_paraCount = 1;
-				}
-			}
+
+			var info = this._exprFunctionArgs(tokens,i);
+			var _paraCount = info._paraCount,
+				paraInfo = info.argsLocationInfo;
 			//将每个函数参数当作一个独立表达式处理（递归处理）
 			for (var k = 0; k < _paraCount; k++) {
 				var _fpTokens = this._expr(tokens,paraInfo[k].offset,paraInfo[k].count);
 				curOperand.args.push(_fpTokens);
 			}
 			addOperand(curOperand);//函数是一个特殊的操作数
-			i = j;//i移位到函数的反括号			
+			i = info.lastIndex;//i移位到函数的反括号
 			continue;
 		} else if(curToken.type == TOKEN_OBJECT){//对象调用
 			//如果是调用，则维护一个成员列表 + 一个函数【可选】
@@ -285,14 +254,23 @@ CalContext.prototype._expr = function(tokens,offset,count){
 					curOperand.callee.push(nextToken.value);
 				} else if(nextToken.type == TOKEN_FUNCTION) {
 					curOperand.callee.push(nextToken.value);
-					//处理参数列表（参数列表相当于几个新的表达式）										
+					//处理参数列表（参数列表相当于几个新的表达式）
+					var info = this._exprFunctionArgs(tokens,j - 1);
+					var _paraCount = info._paraCount,
+						paraInfo = info.argsLocationInfo;
+					//将每个函数参数当作一个独立表达式处理（递归处理）
+					for (var k = 0; k < _paraCount; k++) {
+						var _fpTokens = this._expr(tokens,paraInfo[k].offset,paraInfo[k].count);
+						curOperand.args.push(_fpTokens);
+					}	
+					i = info.lastIndex;//i移位到函数的反括号			
 					break;
 				} else {
+					i = j - 2;//恢复到函数末尾
 					break;
 				}
 			}
-			addOperand(curOperand);//当作一个特殊的操作数
-			i = j - 2;//恢复到函数末尾
+			addOperand(curOperand);//当作一个特殊的操作数			
 		} else { //处理操作符（包含括号）
 			curOperator = curToken;
 			if(operatorStack.length == 0){
@@ -341,6 +319,49 @@ CalContext.prototype._expr = function(tokens,offset,count){
     }
     return finalTokens;
 };
+
+CalContext.prototype._exprFunctionArgs = function(tokens,offset){
+	// 参数信息：参数在单词流的位置信息
+	var paraInfo = [];
+	//将函数2个括号之间的内容作为几个独立表达式
+	var _start = offset + 2,	     //函数所有参数单词流的起始位置（不包含括号）
+		_paraCount = 0,		 //函数参数个数
+		j = offset + 1,			 //开始扫描的位置
+		_lb = 1;             //左括号的个数（1表示参数的开始括号）
+	//扫描函数参数，计算出函数参数个数，每个参数的起始位置，token个数				
+	while(true){
+		j++;
+		var _t = tokens[j].value;
+		if(_t == ")" && _lb == 1){//当参数括号刚好匹配，表示2个括号之间的 内容为参数内容
+			//最后一个参数或第一个参数（只有一个参数的时候）
+			if(_paraCount > 0){
+				paraInfo.push({
+					offset: _start,
+					count: j - _start
+				});	
+			}
+			break;
+		} else if(_t == "("){
+			_lb++;
+		} else if(_t == ")"){
+			_lb--;
+		} else if(_t == "," && _lb == 1){//参数分割
+			_paraCount++;//参数个数+1
+			paraInfo.push({
+				offset: _start,
+				count: j - _start
+			});	//记录参数信息位置信息
+			_start = j + 1;//下个参数的起始位置
+		} else if(j == offset + 2){//如果参数的第一个字符不是以上字符，则表示函数起码有一个参数
+			_paraCount = 1;
+		}
+	}
+	return {
+		_paraCount: _paraCount,
+		argsLocationInfo: paraInfo,
+		lastIndex: j 				
+	};
+}
 
 /*
   逆波兰表达式求值算法：
@@ -424,17 +445,14 @@ CalContext.prototype._getFunctionResult = function(funToken){
 }
 
 CalContext.prototype._getCallExpressionResult = function(callToken){
-	var call = null,obj = null;
+	var tail = null,obj = null;
 	for (var i = 0; i < callToken.callee.length; i ++) {
 		var name = callToken.callee[i];
 		if(i == 0) {
-			obj = this.dataMap[name];
+			tail = obj = this.dataMap[name];
+			continue;
 		}
-		if(call == null) {			
-			call = obj;
-		} else {
-			call = obj[name];
-		}			
+		tail = tail[name];			
 	}
 	if(callToken.args.length > 0) {//对象调用		
 		var args = [];
@@ -444,10 +462,10 @@ CalContext.prototype._getCallExpressionResult = function(callToken){
 			args.push(arg);
 		}
 		//执行函数
-		var result = 0;//暂不支持 对象函数调用
+		var result = tail.apply(obj,args);
 		return result;
 	} else {
-		return call;//属性
+		return tail;//属性
 	}
 }
 

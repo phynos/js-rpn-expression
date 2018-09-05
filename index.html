@@ -80,6 +80,8 @@
 
     context.test("$a + fun3(2)",35);
 
+    context.test("$a + fun3(2) + people.fun1(1)",65);
+
   </pre>
 <script type="text/javascript" src="expression.js"></script>
 <script>
@@ -149,6 +151,8 @@
     context.test("$a + fun2(fun1(2),3) + 20",228);
 
     context.test("$a + fun3(2)",35);
+
+    context.test("$a + fun3(2) + people.fun1(1)",65);
 </script>
 </body>
 </html>

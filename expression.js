@@ -144,9 +144,13 @@ CalContext.prototype._parse = function(expression){
 				if(isAlphaOrLineOrNumber(c)){
 					i++;
 					funName = funName + c;
-				} else if(c == "("){//函数的每个参数相当于一个表达式
-					addToken(TOKEN_FUNCTION,funName);	
+				} else if(c == "("){//函数
+					addToken(TOKEN_FUNCTION,funName);
 					addToken(TOKEN_OPERATOR,c);
+					i++;
+					break;
+				} else if(c == ".") {//对象
+					addToken(TOKEN_OBJECT,funName);
 					i++;
 					break;
 				}
@@ -262,6 +266,9 @@ CalContext.prototype._expr = function(tokens,offset,count){
 			addOperand(curOperand);//函数是一个特殊的操作数
 			i = j;//i移位到函数的反括号			
 			continue;
+		} else if(curToken.type == TOKEN_OBJECT){
+			//如果是对象，则维护一个成员列表 + 一个函数【可选】
+			throw "暂不支持对象，当前对象：" + curToken.value;
 		} else { //处理操作符（包含括号）
 			curOperator = curToken;
 			if(operatorStack.length == 0){
@@ -414,7 +421,7 @@ CalContext.prototype.putFunction = function(name,f,obj){
 		obj:obj
 	};
 };
-//清楚值栈中所有的自定义数据——若不再使用表达式，最好调用此方法清理数据
+//清除值栈中所有的自定义数据——若不再使用表达式，最好调用此方法清理数据
 CalContext.prototype.clearAll = function(){
 	this.dataMap = {};
 	this.functionMap = {};

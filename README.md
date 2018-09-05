@@ -115,6 +115,9 @@
 
     context.assertEqual("$a + fun3(2) + people.skill.lang(1)",39);
 
+    //10 + (28+2) + 106 * 2 + 24 = 276
+    context.assertEqual("10 + fun3(2) + people.skill.lang(fun2(3+7,3)) * 2 + 24",276);
+
     context.assertEqual("PI * 2 + 3",9);
   </pre>
 

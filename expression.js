@@ -469,7 +469,6 @@ CalContext.prototype.putData = function(name,data,context){
 //清除值栈中所有的自定义数据——若不再使用表达式，最好调用此方法清理数据
 CalContext.prototype.clearAll = function(){
 	this.dataMap = {};
-	this.functionMap = {};
 };
 CalContext.prototype.assertEqual = function(expr,result){   
 	context = this;  

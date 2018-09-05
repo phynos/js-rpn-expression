@@ -64,36 +64,36 @@
 
     //下面是测试用例
 
-    context.test("40+8*2",56);
+    context.assertEqual("40+8*2",56);
 
-    context.test("40*8+2",322);
+    context.assertEqual("40*8+2",322);
 
-    context.test("40/8+2",7);
+    context.assertEqual("40/8+2",7);
 
-    context.test("40+8/2",44);
+    context.assertEqual("40+8/2",44);
 
-    context.test("(40+8)/2",24);
+    context.assertEqual("(40+8)/2",24);
 
-    context.test("40*(8-2)",240);
+    context.assertEqual("40*(8-2)",240);
 
-    context.test("10%3 + 1",2);
+    context.assertEqual("10%3 + 1",2);
 
-    context.test("0.1 + 1 + 0.3",1.4);
+    context.assertEqual("0.1 + 1 + 0.3",1.4);
 
-    context.test("0.1 *10 + 6.3",7.3);
+    context.assertEqual("0.1 *10 + 6.3",7.3);
 
-    context.test("$a + 5",10);
+    context.assertEqual("$a + 5",10);
 
-    context.test("$a + fun0()",1005);
+    context.assertEqual("$a + fun0()",1005);
 
-    context.test("$a + fun0() + 100",1105);
+    context.assertEqual("$a + fun0() + 100",1105);
 
-    context.test("$a + fun1(1)",15);
+    context.assertEqual("$a + fun1(1)",15);
 
-    context.test("$a + fun2(2,1)",26);
+    context.assertEqual("$a + fun2(2,1)",26);
 
-    context.test("$a + fun2(3+7,3)",108);
+    context.assertEqual("$a + fun2(3+7,3)",108);
 
-    context.test("$a + fun2(fun1(2),3) + 20",228);
+    context.assertEqual("$a + fun2(fun1(2),3) + 20",228);
   </pre>
 

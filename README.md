@@ -49,6 +49,7 @@
     //增加值栈——对象
     context.putData("people",{
        age: 28,
+       bat: 3,
        fun1: function(){
          return this.age + 2;
        },
@@ -60,7 +61,7 @@
        },
        skill: {
           lang : function(a){
-              return a + 3;
+              return a + this.bat;
           }
        }
     });

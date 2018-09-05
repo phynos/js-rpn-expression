@@ -181,8 +181,7 @@ CalContext.prototype._expr = function(tokens,offset,count){
 		operandStack.push({
 		    type: operand.type,
 		    value: operand.value,
-		    paraCount: operand.paraCount,//函数参数个数
-			paraTokenList: operand.paraTokenList  //函数参数列表
+			args: operand.args  //函数参数列表
 		});
 	};
 	var operatorStack = [];//操作符堆栈
@@ -217,11 +216,11 @@ CalContext.prototype._expr = function(tokens,offset,count){
 				}
 			}
 			continue;
-		} else if(curToken.type == TOKEN_FUNCTION){
+		} else if(curToken.type == TOKEN_FUNCTION){//孤立函数
 			//如果是函数，则将函数的每个参数单独作为一个表达式处理
 			//如果参数有有嵌套，则递归处理
 			curOperand = curToken;
-			curOperand.paraTokenList = [];
+			curOperand.args = [];//参数列表
 			// 参数信息：参数在单词流的位置信息
 			var paraInfo = [];
 			//将函数2个括号之间的内容作为几个独立表达式
@@ -258,17 +257,36 @@ CalContext.prototype._expr = function(tokens,offset,count){
 				}
 			}
 			//将每个函数参数当作一个独立表达式处理（递归处理）
-			curOperand.paraCount = _paraCount;
-			for (var k = 0; k < curOperand.paraCount; k++) {
+			for (var k = 0; k < _paraCount; k++) {
 				var _fpTokens = this._expr(tokens,paraInfo[k].offset,paraInfo[k].count);
-				curOperand.paraTokenList.push(_fpTokens);
+				curOperand.args.push(_fpTokens);
 			}
 			addOperand(curOperand);//函数是一个特殊的操作数
 			i = j;//i移位到函数的反括号			
 			continue;
-		} else if(curToken.type == TOKEN_OBJECT){
-			//如果是对象，则维护一个成员列表 + 一个函数【可选】
-			throw "暂不支持对象，当前对象：" + curToken.value;
+		} else if(curToken.type == TOKEN_OBJECT){//对象调用
+			//如果是调用，则维护一个成员列表 + 一个函数【可选】
+			curOperand = curToken;
+			curOperand.callee = [];//调用者链
+			curOperand.args = [];//参数列表
+			curOperand.callee.push(curToken.value);
+			//
+			var j = i + 1;
+			while(true) {
+				var nextToken = tokens[j];
+				j++;
+				if(nextToken.type == TOKEN_OBJECT) {
+					curOperand.callee.push(nextToken.value);
+				} else if(nextToken.type == TOKEN_FUNCTION) {
+					curOperand.callee.push(nextToken.value);
+					//处理参数列表（参数列表相当于几个新的表达式）										
+					break;
+				} else {
+					break;
+				}
+			}
+			addOperand(curOperand);//当作一个特殊的操作数
+			i = j - 2;//恢复到函数末尾
 		} else { //处理操作符（包含括号）
 			curOperator = curToken;
 			if(operatorStack.length == 0){
@@ -334,36 +352,43 @@ CalContext.prototype._execute = function(exprTokens){
 	for (var i = 0; i < exprTokens.length; i++) {
 		var token = exprTokens[i];
 
-		if(token.type == TOKEN_NUMBER 
-			|| token.type == TOKEN_FUNCTION
-			|| token.type == TOKEN_VARIABLE){
+		if(token.type == TOKEN_NUMBER){
 			//如果为操作数则压入操作数堆栈
-			opds.push(token);
+			opds.push(token.value);
+		} else if(token.type == TOKEN_VARIABLE){
+			var result = this._getVarValue(token);
+			opds.push(result);
+		} else if(token.type == TOKEN_FUNCTION) {
+			//如果是函数，则计算
+			var result = this._getFunctionResult(token);
+			opds.push(result);
+		} else if(token.type == TOKEN_FUNCTION){
+			opds.push(0);//暂时不支持对象计算
 		} else if(token.type == TOKEN_OPERATOR){//二目操作符
 			switch (token.value) {
 				case "+":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opa + opb);
 				break;
 				case "-":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opb - opa);
 				break;
 				case "*":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opa * opb);
 				break;
 				case "/":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opb / opa);
 				break;
 				case "%":
-					opa = this._getExprTokenValue(opds.pop());
-					opb = this._getExprTokenValue(opds.pop());
+					opa = opds.pop();
+					opb = opds.pop();
 					opds.push(opb % opa);
 				break;
 				default:
@@ -373,34 +398,53 @@ CalContext.prototype._execute = function(exprTokens){
 		}
 	}
 	if(opds.length == 1){
-		value = this._getExprTokenValue(opds.pop());
+		value = opds.pop();
 	}
 	return value;
 }
-CalContext.prototype._getExprTokenValue = function(exprToken){
-	if(typeof(exprToken) == "number"){
-		return exprToken;
-	} else if(exprToken.type == TOKEN_NUMBER){
-		return exprToken.value;
-	} else if(exprToken.type == TOKEN_VARIABLE){
-		var varName = exprToken.value;
-		var num = this.dataMap[varName];
-		return num;
-	} else if(exprToken.type == TOKEN_FUNCTION){
-		//如果操作数是函数，则需要遍历其参数，如果有嵌套还需要迭代处理
-		var funName = exprToken.value;
-		var fObj = this.functionMap[funName];
-		var paras = [];
-		//弹出参数
-		for (var i = 0; i < exprToken.paraCount; i++) {
-			var para = this._execute(exprToken.paraTokenList[i]);
-			paras.push(this._getExprTokenValue(para));
-		}
-		var result = fObj.fun.apply(fObj.obj == undefined? {}:fObj.obj,paras);
-		return result;		
-	} else {
-		throw "操作数是不支持的类型：" + exprToken;
+
+CalContext.prototype._getFunctionResult = function(funToken){
+	var funName = funToken.value;
+	var fObj = this.functionMap[funName];
+	var args = [];
+	//弹出参数
+	for (var i = 0; i < funToken.args.length; i++) {
+		var arg = this._execute(funToken.args[i]);//每个参数都是一个表达式，递归计算
+		args.push(arg);
 	}
+	var result = fObj.fun.apply(fObj.obj == undefined? {}:fObj.obj,args);
+	return result;
+}
+
+CalContext.prototype._getCallExpressionResult = function(callToken){
+	var call = null;
+	for (var i = 0; i < callToken.callee.length; i ++) {
+		if(call == null) {
+			call = callToken.callee[i];
+		} else {
+			var key = callToken.callee[i]
+			call = call[key];
+		}			
+	}
+	if(callToken.args.length > 0) {//对象调用		
+		var args = [];
+		//计算参数
+		for (var i = 0; i < callToken.args.length; i++) {
+			var arg = this._execute(callToken.args[i]);
+			args.push(arg);
+		}
+		//执行函数
+		var result = 0;//暂不支持 对象函数调用
+		return result;
+	} else {
+		return call;//属性
+	}
+}
+
+CalContext.prototype._getVarValue = function(exprToken){
+	var varName = exprToken.value;
+	var num = this.dataMap[varName];
+	return num;
 }
 //词法分析后的单词流
 CalContext.prototype.getTokens = function(){
@@ -426,7 +470,7 @@ CalContext.prototype.clearAll = function(){
 	this.dataMap = {};
 	this.functionMap = {};
 };
-CalContext.prototype.test = function(expr,result){   
+CalContext.prototype.assertEqual = function(expr,result){   
 	context = this;  
     console.group("测试样例：" + expr);
     console.time("编译和执行");

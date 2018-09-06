@@ -25,7 +25,7 @@
 - [x] 支持自定义对象之对象变量访问（包括嵌套）
 - [x] 支持自定义对象之函数调用（包括嵌套）
 - [ ] 浮点数精度问题
-- [x] 标准JS语法，新版除了测试函数，核心功能不依赖浏览器环境（比如window,dom等）
+- [x] 标准JS语法，除了测试函数，核心功能不依赖浏览器环境（比如window,dom,console等）
 
 ## 使用举例
   <pre>
@@ -40,14 +40,14 @@
     context.putData("fun1",function(a){ return 10 * a;});
     //增加值栈——多参数函数
     context.putData("fun2",function(a,b){ return 10 * a + b;});
-    //增加值栈——对象参数函数（新版本中，如果函数使用了浏览器window对象全局变量，则必须传入window作为上下文）
+    //增加值栈——对象方法（如果使用了浏览器window对象的方法或属性，则必须传入window作为上下文）
     var t = {
       year: 28,
       fun: function(a) {
         return a + this.year;
       }
     };
-    context.putData("fun3",t.fun,t);
+    context.putData("fun3",t.fun,t);//这里需要将对象传入，作为回调上下文
     //增加值栈——对象
     context.putData("people",{
        age: 28,

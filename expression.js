@@ -11,13 +11,12 @@
 
 var TOKEN_NUMBER = "number";
 var TOKEN_OPERATOR = "operator";
-var TOKEN_VARIABLE = "variable";
 var TOKEN_IDENTIFIER = "identifier";
 
 function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
-function isAlphaOrLine(c) { return /[a-zA-Z_]/.test(c); };
-function isAlphaOrLineOrNumber(c) { return /[0-9a-zA-Z_]/.test(c); };
+function isAlphaOrLine(c) { return /[a-zA-Z_\$]/.test(c); };
+function isAlphaOrLineOrNumber(c) { return /[0-9a-zA-Z_\$]/.test(c); };
 function isWhiteSpace(c) { return /\s/.test(c); };
 
 //获取运算符优先级，数值越大，优先级越低
@@ -55,7 +54,6 @@ function comparePriority(opa,opb){
 function CalContext(){
 	if(this instanceof CalContext){
 		this.dataMap = {};
-		this.functionMap = {};
 	} else {
 		throw new "你必须用new关键字调用构造函数";
 	}
@@ -122,20 +120,7 @@ CalContext.prototype._parse = function(expression){
 			i++;
 		} else if(isWhiteSpace(c)){
 			i++;
-		} else if(c == "$"){//变量
-			var varName = "$";//最终变量名称
-			i++;
-			while(i < expression.length){
-				c = expression[i];
-				if(isAlphaOrLineOrNumber(c)){
-					i++;
-					varName = varName + c;
-				} else {
-					break;
-				}
-			}			
-			addToken(TOKEN_VARIABLE,varName);			
-		} else if(isAlphaOrLine(c)){//函数或对象
+		} else if(isAlphaOrLine(c)){//标识符（变量，函数，对象属性，对象方法）
 			var name = c;
 			i++;
 			while(i < expression.length){
@@ -200,8 +185,7 @@ CalContext.prototype._expr = function(tokens,offset,count){
 	var curToken,curOperand,curOperator;
 	for (var i = offset; i < (offset + count); i++) {
 		curToken = tokens[i];
-		if(curToken.type == TOKEN_NUMBER
-			|| curToken.type == TOKEN_VARIABLE){
+		if(curToken.type == TOKEN_NUMBER){
 			curOperand = curToken;
 			addOperand(curOperand);
 			continue;
@@ -367,9 +351,6 @@ CalContext.prototype._execute = function(exprTokens){
 		if(token.type == TOKEN_NUMBER){
 			//如果为操作数则压入操作数堆栈
 			opds.push(token.value);
-		} else if(token.type == TOKEN_VARIABLE){
-			var result = this._getVarValue(token);
-			opds.push(result);
 		} else if(token.type == TOKEN_IDENTIFIER){
 			var result = this._getCallExpressionResult(token);
 			opds.push(result);
@@ -446,11 +427,6 @@ CalContext.prototype._getCallExpressionResult = function(callToken){
 	}
 }
 
-CalContext.prototype._getVarValue = function(exprToken){
-	var varName = exprToken.value;
-	var val = this.dataMap[varName].data;
-	return val;
-}
 //词法分析后的单词流
 CalContext.prototype.getTokens = function(){
 	return this.tokens;

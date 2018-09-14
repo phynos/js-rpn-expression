@@ -396,8 +396,9 @@ CalContext.prototype.putData = function(name,data,context){
 CalContext.prototype.clearAll = function(){
 	this.dataMap = {};
 };
-CalContext.prototype.assertEqual = function(expr,result){   
-	context = this;  
+
+CalContext.prototype.assertEqualChrome = function(expr,result){ 
+	var context = this;  
     console.group("测试样例：" + expr);
     console.time("编译和执行");
     var _result = context.calc(expr);     
@@ -410,4 +411,32 @@ CalContext.prototype.assertEqual = function(expr,result){
     console.log(context.getFinalTokens());     
     console.assert(result == _result,"测试失败");     
     console.groupEnd();
+}
+CalContext.prototype.assertEqualBrower = function(expr,result){ 
+	var context = this;  
+    console.log("测试样例：" + expr);
+    var _result = context.calc(expr);     
+    if(result == _result)
+       console.log("计算结果[成功]：" + expr + "=" + _result);
+    else
+       console.log("计算结果[失败]：" + expr + "，实际值：" + _result + "，期望值：" + result);
+    console.log("语法栈：");
+    console.log(context.getFinalTokens());     
+    console.assert(result == _result,"测试失败");     
+    console.log("----------------------------");
+}
+CalContext.prototype.assertEqual = function(expr,result){   
+	if(console == undefined && print == undefined) {
+		throw "当前环境不支持打印，请直接调用";
+	} else if(console && (console.group == undefined || console.time == undefined)) {
+		this.assertEqualBrower(expr,result);
+	} else if(console){
+		this.assertEqualChrome(expr,result);
+	} else {
+		throw "当前环境不支持打印，请直接调用";
+	}
 };
+
+//导出
+if(module != undefined)
+	module.exports = CalContext;

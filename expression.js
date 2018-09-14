@@ -12,8 +12,9 @@
 var TOKEN_NUMBER = "number";
 var TOKEN_OPERATOR = "operator";
 var TOKEN_IDENTIFIER = "identifier";
+var TOKEN_EOF = "eof";
 
-function isOperator(c) { return /[+\-*\/\^%=(),]/.test(c); };
+function isOperator(c) { return /[+\-*\/\^%=()]/.test(c); };
 function isDigit(c) { return /[0-9]/.test(c); };
 function isAlphaOrLine(c) { return /[a-zA-Z_\$]/.test(c); };
 function isAlphaOrLineOrNumber(c) { return /[0-9a-zA-Z_\$]/.test(c); };
@@ -53,49 +54,51 @@ function comparePriority(opa,opb){
 
 function CalContext(){
 	if(this instanceof CalContext){
-		this.dataMap = {};
+		this.dataMap = {};	
 	} else {
 		throw new "你必须用new关键字调用构造函数";
 	}
 };
 CalContext.prototype.calc = function(expression){
-	//词法分析
-	var tokens = this._parse(expression);
-	this.tokens = tokens;
+	//
+	this.charIndex = 0;
 	//表达式转换
-	var finalTokens = this._expr(this.tokens,0,this.tokens.length);
+	var finalTokens = this._expr(expression);
 	this.finalTokens = finalTokens;
 	//执行
 	var result = this._execute(finalTokens);
 	return result;
 };
-//词法分析
-CalContext.prototype._parse = function(expression){
-	var tokens = [],i = 0,c;
-	var addToken = function (type, value) {
-	  tokens.push({
-	    type: type,
-	    value: value
-	 });
+
+//
+CalContext.prototype._next = function(expression){
+	var c,that = this;
+	var createToken = function(type,value){
+		var token =  {
+			type: type,
+	    	value: value
+		};
+		that.currentToken = token;//记录当前的token
+		return token;
 	};
-	while(i < expression.length){
-		c = expression[i];
+	while(this.charIndex < expression.length){
+		c = expression[this.charIndex];
 		if(isDigit(c)){
 			var num = parseInt(c);
 			var num2 = 0;//如果是浮点数，先用此数记录小数后的部分
 			var isFloat = false;
-			i++;		
-			while(i < expression.length){				
-				c = expression[i];
+			this.charIndex++;		
+			while(this.charIndex < expression.length){				
+				c = expression[this.charIndex];
 				if(isFloat) {
-					if(isDigit(expression[i])){
-						i++;
+					if(isDigit(expression[this.charIndex])){
+						this.charIndex++;
 						if(num2 == 0){
 							num2 = parseInt(c);
 						} else {
 							num2 = num2*10 + parseInt(c);
 						}
-						if(i == expression.length){
+						if(this.charIndex == expression.length){
 							num = parseFloat(num + "." + num2);	
 						}
 					} else {
@@ -103,53 +106,49 @@ CalContext.prototype._parse = function(expression){
 						break;
 					}
 				} else {
-					if(isDigit(expression[i])){
-						i++;
+					if(isDigit(expression[this.charIndex])){
+						this.charIndex++;
 						num = num * 10 + parseInt(c);				
 					} else if(c == "."){
-						i++;
+						this.charIndex++;
 						isFloat = true;
 					} else {
 						break;
 					}
 				}			
 			}
-			addToken(TOKEN_NUMBER,num);
+			return createToken(TOKEN_NUMBER,num);
+		} else if(c == ",") {
+			this.charIndex++;
+			return createToken(TOKEN_EOF,0);//逗号也作为终结符（2个表达式之间的分隔符）
 		} else if(isOperator(c)){
-			addToken(TOKEN_OPERATOR,c);
-			i++;
+			this.charIndex++;
+			return createToken(TOKEN_OPERATOR,c);
 		} else if(isWhiteSpace(c)){
-			i++;
+			this.charIndex++;
 		} else if(isAlphaOrLine(c)){//标识符（变量，函数，对象属性，对象方法）
 			var name = c;
-			i++;
-			while(i < expression.length){
-				c = expression[i];
+			this.charIndex++;
+			while(this.charIndex < expression.length){
+				c = expression[this.charIndex];
 				if(isAlphaOrLineOrNumber(c)){
-					i++;
+					this.charIndex++;
 					name = name + c;
 				} else if(c == "("){//函数
-					addToken(TOKEN_IDENTIFIER,name);
-					addToken(TOKEN_OPERATOR,c);
-					i++;
-					break;
+					return createToken(TOKEN_IDENTIFIER,name);
 				} else if(c == ".") {//对象
-					addToken(TOKEN_IDENTIFIER,name);
-					name = "";
-					i++;
+					this.charIndex++;//忽略对象属性直接的 点号
+					return createToken(TOKEN_IDENTIFIER,name);
 				} else {
-					if(name != "") {
-						addToken(TOKEN_IDENTIFIER,name);
-					}
-					break;
+					return createToken(TOKEN_IDENTIFIER,name);
 				}
-			}						
+			}
 		} else {
 			throw "非法字符" + c;
 		}
 	}
-	return tokens;	
-};
+	return createToken(TOKEN_EOF,0);
+}
 /*
 中缀表达式转化为逆波兰表达式算法：
 //1、从左至右扫描一中缀表达式。
@@ -164,7 +163,8 @@ CalContext.prototype._parse = function(expression){
 //4、当表达式读取完成后运算符堆栈中尚有运算符时，则依序取出运算符到操作数堆栈，直到运算符堆栈为空。
 
 */
-CalContext.prototype._expr = function(tokens,offset,count){
+CalContext.prototype._expr = function(expression){
+	var qcount = 0;//正括号的个数
 	var operandStack = [];//操作数堆栈
 	var addOperand = function(operand){
 		operandStack.push({
@@ -182,17 +182,19 @@ CalContext.prototype._expr = function(tokens,offset,count){
 		});
 	};
 	//
-	var curToken,curOperand,curOperator;
-	for (var i = offset; i < (offset + count); i++) {
-		curToken = tokens[i];
+	var curToken = null,curOperand,curOperator;	
+	while( (curToken = this._next(expression)).type != TOKEN_EOF){
 		if(curToken.type == TOKEN_NUMBER){
 			curOperand = curToken;
 			addOperand(curOperand);
 			continue;
 		} else if(curToken.value == "("){
+			qcount++;//运算符括号计数
 			curOperator = curToken;
 			addOperator(curOperator);
 			continue;
+		} else if(qcount == 0 && curToken.value == ")") {//处理函数的括号（函数的正括号已经处理过）
+			break;
 		} else if(curToken.value == ")"){
 			//若当前运算符为右括号,则依次弹出运算符堆栈中的运算符并存入到操作数堆栈,直到遇到左括号为止,此时抛弃该左括号.
 			while(true){
@@ -211,27 +213,25 @@ CalContext.prototype._expr = function(tokens,offset,count){
 			curOperand.callee = [];//调用者链
 			curOperand.args = [];//参数列表
 			curOperand.callee.push(curToken.value);
-			//
-			var j = i + 1;
+			//循环处理属性调用
 			while(true) {
-				var nextToken = tokens[j];
-				j++;
+				var cIndex = this.charIndex;// 记录当前字符位置	
+				var nextToken = this._next(expression);
 				if(nextToken.type == TOKEN_IDENTIFIER) {
 					curOperand.callee.push(nextToken.value);
-				} else if(nextToken.value == "(") {
-					//处理参数列表（参数列表相当于几个新的表达式）
-					var info = this._exprFunctionArgs(tokens,j - 2);
-					var _paraCount = info._paraCount,
-						paraInfo = info.argsLocationInfo;
-					//将每个函数参数当作一个独立表达式处理（递归处理）
-					for (var k = 0; k < _paraCount; k++) {
-						var _fpTokens = this._expr(tokens,paraInfo[k].offset,paraInfo[k].count);
+				} else if(nextToken.value == "(") {	
+					//循环处理 函数参数（每个参数都是一个独立的表达式）
+					while(true){
+						//参数表达式						
+						var _fpTokens = this._expr(expression);
 						curOperand.args.push(_fpTokens);
-					}	
-					i = info.lastIndex;//i移位到函数的反括号			
+						//参数处理完毕则 退出循环
+						if(this.currentToken.value == ")")
+							break;
+					}
 					break;
 				} else {
-					i = j - 2;//恢复到函数末尾
+					this.charIndex = cIndex;//还原
 					break;
 				}
 			}
@@ -256,6 +256,7 @@ CalContext.prototype._expr = function(tokens,offset,count){
 						if(comparePriority(curOperator,operatorStack[operatorStack.length - 1]) < 1
 							&& operatorStack[operatorStack.length - 1].value != "("){
 							//
+							qcount--;//运算符括号计数
 							addOperand(operatorStack.pop());
 							//
 							if(operatorStack.length == 0){
@@ -269,7 +270,7 @@ CalContext.prototype._expr = function(tokens,offset,count){
 					}
 				}
 			}
-		}		
+		}			
 	}
 	//转换完成,若运算符堆栈中尚有运算符时,
     //则依序取出运算符到操作数堆栈,直到运算符堆栈为空
@@ -284,53 +285,6 @@ CalContext.prototype._expr = function(tokens,offset,count){
     }
     return finalTokens;
 };
-
-/**
-* 获取函数调用 参数信息
-* offset：函数括号之前的索引
-*/
-CalContext.prototype._exprFunctionArgs = function(tokens,offset){
-	// 参数信息：参数在单词流的位置信息
-	var paraInfo = [];
-	//将函数2个括号之间的内容作为几个独立表达式
-	var _start = offset + 2, //函数所有参数单词流的起始位置（不包含括号）
-		_paraCount = 0,		 //函数参数个数
-		j = offset + 1,		 //开始扫描的位置
-		_lb = 1;             //左括号的个数（1表示参数的开始括号）
-	//扫描函数参数，计算出函数参数个数，每个参数的起始位置，token个数				
-	while(true){
-		j++;
-		var _t = tokens[j].value;
-		if(_t == ")" && _lb == 1){//当参数括号刚好匹配，表示2个括号之间的 内容为参数内容
-			//最后一个参数或第一个参数（只有一个参数的时候）
-			if(_paraCount > 0){
-				paraInfo.push({
-					offset: _start,
-					count: j - _start
-				});	
-			}
-			break;
-		} else if(_t == "("){
-			_lb++;
-		} else if(_t == ")"){
-			_lb--;
-		} else if(_t == "," && _lb == 1){//参数分割
-			_paraCount++;//参数个数+1
-			paraInfo.push({
-				offset: _start,
-				count: j - _start
-			});	//记录参数信息位置信息
-			_start = j + 1;//下个参数的起始位置
-		} else if(j == offset + 2){//如果参数的第一个字符不是以上字符，则表示函数起码有一个参数
-			_paraCount = 1;
-		}
-	}
-	return {
-		_paraCount: _paraCount,
-		argsLocationInfo: paraInfo,
-		lastIndex: j // 最后一个括号后面的一个位置 的索引				
-	};
-}
 
 /*
   逆波兰表达式求值算法：
@@ -427,10 +381,6 @@ CalContext.prototype._getCallExpressionResult = function(callToken){
 	}
 }
 
-//词法分析后的单词流
-CalContext.prototype.getTokens = function(){
-	return this.tokens;
-};
 //最终的语法栈
 CalContext.prototype.getFinalTokens = function(){
 	return this.finalTokens;
@@ -456,8 +406,6 @@ CalContext.prototype.assertEqual = function(expr,result){
        console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:green;","成功",expr,_result);
     else
        console.log("计算结果%c[%s]：%s=%f","font-size:20px; color:red;","失败",expr,_result);
-    console.log("单词流：");
-    console.log(context.tokens);
     console.log("语法栈：");
     console.log(context.getFinalTokens());     
     console.assert(result == _result,"测试失败");     

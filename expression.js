@@ -438,5 +438,8 @@ CalContext.prototype.assertEqual = function(expr,result){
 };
 
 //导出
-if(module != undefined)
+if(typeof module === "undefined") {
+	
+} else {	
 	module.exports = CalContext;
+}
